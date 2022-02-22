@@ -17,8 +17,8 @@ app.layout = html.Div([
 
 @app.callback(
     dash.dependencies.Output('output-div', 'children'),
-    dash.dependencies.Input('submit-button', 'n_clicks'),
-    dash.dependencies.State('currency-pair', 'value')
+    [dash.dependencies.Input('submit-button', 'n_clicks'),
+    dash.dependencies.State('currency-pair', 'value')]
 )
 def write_something_to_the_div(n_clicks, value):
     message_to_write_to_div = 'Right now, the value in the input is {}, and the submit button has been clicked {} times.'.format(
