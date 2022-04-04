@@ -8,7 +8,7 @@ from ibapi.contract import Contract
 from ibapi.order import Order
 from fintech_ibkr import *
 from dash import dcc
-from dash import html
+from dash import html, dash_table
 import dash_daq as daq
 from datetime import date
 
@@ -261,78 +261,86 @@ app.layout = html.Div([
     # Another line break
     html.Br(),
     # Section title
-    html.H6("Make a Trade"),
+    html.H4("Make a Trade"),
     # Div to confirm what trade was made
     html.Div(id='trade-output'),
-    html.H4("choose trading items"),
+    html.Label("choose trading items"),
     dcc.Dropdown(
-        options = [
-            'STK','CRYPTO','CASH','IND','CFD',
-            'FUT','CONTFUT','FUT+CONTFUT',
-            'OPT','FOP','BOND','FUND','CMDTY',
+        options=[
+            'STK', 'CRYPTO', 'CASH', 'IND', 'CFD',
+            'FUT', 'CONTFUT', 'FUT+CONTFUT',
+            'OPT', 'FOP', 'BOND', 'FUND', 'CMDTY',
             'WAR', 'IOPT'
         ],
-        id = "SecType",
-        value = 'STK',
-        style = {
+        id="SecType",
+        value='STK',
+        style={
             'width': '75px',
             'display': 'inline-block',
-            'vertical-align': 'middle',
             'padding-left': '15px'
         }
     ),
+    html.Br(),
+    html.Br(),
     html.Div(
-        html.H4("choose exchange"),
-        dcc.Dropdown(
-            options = [
-                'IDEALPRO', 'PAXOS', 'SMART', 'DTB',
-                'GLOBEX','BOX','MEFFRV','FUNDSERV',
-                'FWB','SBF'
-            ],
-            id = 'exchange',
-            value = 'DTB',
-            style = {
-                'width' : '75px',
-                'display' : 'inline-block',
-                'vertical-align':'middle',
-                'padding-left': '15px'
-            }
-        )
+        children=[
+            html.Label("choose exchange"),
+            dcc.Dropdown(
+                options=[
+                    'IDEALPRO', 'PAXOS', 'SMART', 'DTB',
+                    'GLOBEX', 'BOX', 'MEFFRV', 'FUNDSERV',
+                    'FWB', 'SBF'
+                ],
+                id='exchange',
+                value='SMART',
+                style={
+                    'width': '100px',
+                    'display': 'inline-block',
+                    'padding-left': '15px'
+                }
+            )
+        ],
     ),
+    html.Br(),
     html.Div(
-        html.H4("choose primary exchange"),
-        dcc.Input('enter primary exchange here'),
-        id = 'primaryexchange',
-        style = {
-                'width' : '75px',
-                'display' : 'inline-block',
-                'vertical-align':'middle',
-                'padding-left': '15px'
-        }
+        children=[
+            html.Label("choose primary exchange"),
+            dcc.Input(
+                value="ARCA",
+                id='primaryexchange',
+                type="text",
+                style={
+                    'width': '75px',
+                    'display': 'inline-block',
+                    'padding-left': '15px'
+                }
+            ),
+        ]
     ),
+    html.Br(),
     html.Div(
-        html.H4("choose currency"),
-        dcc.Dropdown(
-            options = [
-                'GBP', 'USD','EUR'
-            ],
-            id = 'currency',
-            value = 'USD',
-            style = {
-                'width' : '75px',
-                'display' : 'inline-block',
-                'vertical-align' : 'middle',
-                'padding-left' : '15px'
-            }
-        )
+        children=[
+            html.Label('choose currency'),
+            dcc.Dropdown(
+               options=[
+                   'GBP', 'USD', 'EUR'
+               ],
+                id='currency',
+                value='USD',
+                style={'width': '75px',
+                       'display': 'inline-block',
+                       'padding-left': '15px'
+                }
+            ),
+        ],
     ),
-
-    html("Write down the underlying asset symbol"),
+    html.Br(),
+    html.H4("Write down the underlying asset symbol"),
     html.P(
-        children = [
-            "Asset Symbol🙋🏻‍️：",
-            html.A(
-                "asset symbol:"
+        children=[
+            html.Label("Asset Symbol🙋🏻‍️："),
+            dcc.Input(
+                id="contract_Symbol"
             )
         ]
     ),
@@ -357,13 +365,28 @@ app.layout = html.Div([
         ],
         value='BUY'
     ),
-    # Text input for the currency pair to be traded
-    dcc.Input(id='trade-currency', value='AUDCAD', type='text'),
+    html.Br(),
+    html.Label('Enter limit price: '),
+    dcc.Input(
+        id='lmtPrice',
+        type='number',
+        style={
+            'width': '75px',
+            'display': 'inline-block',
+            'padding-left': '15px'
+        }
+    ),
     # Numeric input for the trade amount
+    html.Br(),
+    html.Label('Enter trade amount: '),
     dcc.Input(id='trade-amt', value='20000', type='number'),
     # Submit button for the trade
-    html.Button('Trade', id='trade-button', n_clicks=0)
-
+    html.Button('Trade', id='trade-button', n_clicks=0),
+    dash_table.DataTable(
+        data=pd.read_csv('submitted_orders.csv').to_dict('records'),
+        columns=[{'id': c, 'name': c} for c in df.columns],
+    ),
+    html.Br()
 ])
 
 
@@ -373,7 +396,8 @@ app.layout = html.Div([
         Output("sync-connection-status", "children")
     ],
     Input("connect-button", "n_clicks"),
-    [State("host", "value"), State("port", "value"), State("clientid", "value")]
+    [State("host", "value"), State("port", "value"), State("clientid", "value")],
+    prevent_initial_call=True
 )
 def update_connect_indicator(n_clicks, host, port, clientid):
     try:
@@ -433,7 +457,7 @@ def update_candlestick_graph(n_clicks, currency_string, what_to_show,
     except:
         return ("No contract found for " + currency_string), go.Figure()
 
-    contract_symbol_ibkr = str(contract_details).split(",")[10]
+    contract_symbol_ibkr = contract_details.symbol[0]+'.'+contract_details.currency[0]
 
     # If the contract name doesn't equal the one you want:
     if not contract_symbol_ibkr == currency_string:
@@ -508,31 +532,34 @@ def update_candlestick_graph(n_clicks, currency_string, what_to_show,
     # We DON'T want to run this function whenever buy-or-sell, trade-currency,
     #   or trade-amt is updated, so we pass those in as States, not Inputs:
     [State('SecType', 'value'), State('contract_Symbol', 'value'),
-     State('currency','value'), State('exchange', 'value'),
-     State('primaryexchange', 'value'), State('mkt_or_lmt','value'),
-     State('buy-or-sell', 'value'), State('trade-currency', 'value'),
-     State('trade-amt', 'value'), State("host", "value"),
+     State('currency', 'value'), State('exchange', 'value'),
+     State('primaryexchange', 'value'), State('mkt_or_lmt', 'value'),
+     State('buy-or-sell', 'value'),
+     State('trade-amt', 'value'), State('lmtPrice', 'value'), State("host", "value"),
      State("port", "value"), State("clientid", "value")],
     # DON'T start executing trades just because n_clicks was initialized to 0!!!
     prevent_initial_call=True
 )
-def trade(n_clicks, SecType, Contract_Symbol, currency, exchange, primaryexchange, mkt_or_lmt,action, trade_currency, trade_amt, lmtPrice, host, port, clientid):
+def trade(n_clicks, SecType, Contract_Symbol, currency, exchange, primaryexchange, mkt_or_lmt, action,
+          trade_amt, lmtPrice, host, port, clientid):
     # Still don't use n_clicks, but we need the dependency
 
     # Make the message that we want to send back to trade-output
-    msg = action + ' ' + trade_amt + ' ' + trade_currency
+    msg = action + ' ' + str(trade_amt) + ' ' + Contract_Symbol
 
     contract = Contract()
     contract.symbol = Contract_Symbol
     contract.secType = SecType
     contract.currency = currency
     contract.exchange = exchange
-    contract.primaryexchange = primaryexchange
+    if primaryexchange is not None:
+        contract.primaryexchange = primaryexchange
 
     try:
-        contract_details = fetch_contract_details(contract, hostname = host, port = port, client_id = clientid)
+        contract_details = fetch_contract_details(contract, hostname=host, port=port, client_id=clientid)
     except:
-        return(":( No contract found for" + Contract_Symbol)
+        return (":( No contract found for" + Contract_Symbol)
+
     if mkt_or_lmt == "MKT":
         order = Order()
         order.action = action
@@ -546,27 +573,28 @@ def trade(n_clicks, SecType, Contract_Symbol, currency, exchange, primaryexchang
         order.lmtPrice = lmtPrice;
 
     m = place_order(contract, order)
-    df_file = pd.read_csv()
+    df_file = pd.read_csv("/Users/amberyu/Desktop")
 
     order_account = order.account
     order_id = m['orderId'][0]
 
     perm_id = m['perm_ID'][0]
     client_id = clientid
-    contract_id = fetch_contract_details(contract, hostname = host, port = port, client_id = clientid)
-    current_time = fetch_current_time()
+    contract_id = fetch_contract_details(contract, hostname=host, port=port, client_id=clientid)
+    current_time = fetch_current_time(host, port, clientid)
     symbol = contract.symbol
     action = order.action
     size = order.totalQuantity
     order_type = order.orderType
     lmt_price = order.lmtPrice
 
-    df_file = df_file.append({'timestamp' : current_time,'order_id': order_id, 'client_id': client_id, 'perm_id':perm_id,
-                              'contract_id': contract_id, 'symbol':symbol,'action':action, 'size':size,
-                              'order_type':order_type,'lmt_price':lmt_price},ignore_index = True)
+    df_file = df_file.append(
+        {'timestamp': current_time, 'order_id': order_id, 'client_id': client_id, 'perm_id': perm_id,
+         'contract_id': contract_id, 'symbol': symbol, 'action': action, 'size': size,
+         'order_type': order_type, 'lmt_price': lmt_price}, ignore_index=True)
 
     # Return the message, which goes to the trade-output div's children
-    df_file.to_csv()
+    df_file.to_csv("/Users/amberyu/Desktop", index=False);
     return msg
 
 
